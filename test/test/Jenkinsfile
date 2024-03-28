@@ -1,0 +1,444 @@
+def SANITIZED_BRANCH_NAME = env.BRANCH_NAME.toLowerCase().replaceAll("/", "-")
+pipeline {
+    agent {
+      node {
+             label 'docker-agent'
+        }
+    }
+environment{
+
+  // directory change 
+  
+  DIRECTORY_NAME = 'frontend'
+
+  // Variables for AWS Credentials
+
+  DEV_AWS_CREDS = "ort-engineering-test"
+  PROD_AWS_CREDS = "ORT-Engineering (ort-eks-cluster-user)"
+ 
+  // Variables for SonarQubee
+
+  SONARQUBE_URL = "https://ortsonarqube.am.omron.net"
+  SONAR_PROJECT_NAME = "ortservices-frontend"
+  SONAR_DEV_BRANCH = URLEncoder.encode(DEV_REPO_BRANCH_NAME, "UTF-8")
+  SONAR_PROD_BRANCH = URLEncoder.encode(PROD_REPO_BRANCH_NAME, "UTF-8")
+  DEV_SONAR_CREDENTIALS_ID = 'sonar_creds'
+  PROD_SONAR_CREDENTIALS_ID = 'sonar_creds'
+
+  // Variables for Jfrog 
+  ORT_REGISTRY = "https://ortrobotics.jfrog.io" // jfrog url 
+  DEV_JFROG_CREDENTIALS_ID = 'jfrog-access-token'
+  PROD_JFROG_CREDENTIALS_ID = 'jfrog-access-token'
+  NODEJS = 'nodejs'
+  IMAGE_DEPLOY_REGION = 'us-east-1'
+ 
+
+  // Common Variables for Docker Image Build
+
+  ECR_BUILD  = "chatbot:${SANITIZED_BRANCH_NAME}_${BUILD_NUMBER}"
+  ECR_LATEST_BUILD = "chatbot:latest"
+
+  JFROG_REPO_BUILD = "ortservices-chatbot/chatbot:${SANITIZED_BRANCH_NAME}_${BUILD_NUMBER}"
+  JFROG_LATEST_BUILD = "ortservices-chatbot/chatbot:latest"
+
+  // Variables for Develop Envrionment 
+
+  DEV_REPO_BRANCH_NAME = "feature/ortservices-dev"
+  DEV_SECRET_ID = "arn:aws:secretsmanager:us-east-1:746319289656:secret:ortservices_frontend-SFFk2k"
+  DEV_ECR_REGISTRY = "https://746319289656.dkr.ecr.us-east-1.amazonaws.com/chatbot"  
+      
+
+  // Variables for Production Environment  
+
+  PROD_REPO_BRANCH_NAME = "feature/ortservices-master"
+  PROD_SECRET_ID = "arn:aws:secretsmanager:us-east-1:793409127734:secret:ortservices_frontend-7UDpsA"
+  PROD_ECR_REGISTRY = "https://793409127734.dkr.ecr.us-east-1.amazonaws.com/chatbot"
+
+  // Jfrog Variable for Develop Environment  
+  
+  DEV_JFROG_COMPONENT_NAME = "frontend-dev.zip"
+  DEV_JFROG_PACKAGE_NAME = "generic"
+  DEV_JFROG_ARTIFACTORY_PATH = "https://ortrobotics.jfrog.io/artifactory/api/storage/ortservices-code-zip/frontend-dev.zip"
+  SHA_256 = ''
+  JFROG_ARTIFACTORY_NAME = "ortservices-code-zip"
+
+  // Jfrog Variable for Production Environment
+
+  PROD_JFROG_COMPONENT_NAME = "frontend-prod.zip"
+  PROD_JFROG_PACKAGE_NAME = "generic"
+  PROD_JFROG_ARTIFACTORY_PATH = "https://ortrobotics.jfrog.io/artifactory/api/storage/ortservices-code-zip/frontend-prod.zip"
+
+  // Email Variable for Develop 
+  DEV_ALWAYS_TO_EMAIL  = "prateek.agarwal@ssa.omron.com"
+  DEV_FAILURE_TO_EMAIL = "prateek.agarwal@ssa.omron.com"
+  DEV_REPLY_TO_EMAIL = "ortalerts@robitics.omron.com"
+  DEV_CC_TO_EMAIL = "dattatrey.singh@ssa.omron.com, prateek.agarwal@ssa.omron.com"
+
+  // Email Variable for Production 
+
+  PROD_ALWAYS_TO_EMAIL  = "prateek.agarwal@ssa.omron.com"
+  PROD_FAILURE_TO_EMAIL = "ORT-Eng-DevSecOps-US-A@omron.com"
+  PROD_REPLY_TO_EMAIL = "ortalerts@robitics.omron.com"
+  PROD_CC_TO_EMAIL = "dattatrey.singh@ssa.omron.com, prateek.agarwal@ssa.omron.com"
+
+}
+  stages {
+    stage('develop : create .env file'){
+        steps {
+            script {
+                dir ("${DIRECTORY_NAME}") {
+                    if (env.BRANCH_NAME == "${DEV_REPO_BRANCH_NAME}"){
+                        withCredentials([[
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: "${DEV_AWS_CREDS}",
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]]) {
+                        
+                            sh """
+                                 aws secretsmanager get-secret-value --secret-id ${DEV_SECRET_ID} --query SecretString --region us-east-1 --output text | jq -r 'to_entries[] | "\\(.key)=\\(.value)"' > .env
+                            """
+                        }
+                    } 
+                } 
+            }    
+        }
+    }
+    stage('develop : sonarqube scan '){
+      steps{
+        script {
+          dir ("${DIRECTORY_NAME}"){
+            if (env.BRANCH_NAME == "${DEV_REPO_BRANCH_NAME}"){
+              nodejs(nodeJSInstallationName: "${NODEJS}"){
+                withSonarQubeEnv(credentialsId: "${DEV_SONAR_CREDENTIALS_ID}") {
+                  sh 'npm install sonar-scanner'
+                  sh 'npm run sonar'
+                }
+              }
+            }
+            if (env.CHANGE_ID) { // only on PRs
+                nodejs(nodeJSInstallationName: "${NODEJS}"){
+                    withSonarQubeEnv(credentialsId: "${DEV_SONAR_CREDENTIALS_ID}") {
+                        sh '''
+                             npm install sonar-scanner
+
+                             npm run sonar -- \
+                              -Dsonar.projectKey=ortservices-frontend \
+                              -Dsonar.projectName=ortservices-frontend \
+                              -Dsonar.projectVersion=1.0 \
+                              -Dsonar.sources=. \
+                              -Dsonar.sourceEncoding=UTF-8 \
+                              -Dsonar.host.url=https://ortsonarqube.am.omron.net \
+                              -Dsonar.login=squ_15caa4c6e9edde1d8a648a92b7968ff95de3c8f2 \
+                              -Dsonar.javascript.lcov.reportPaths=coverage/1cov.info \
+                              -Dsonar.pullrequest.key=${CHANGE_ID} \
+                              -Dsonar.pullrequest.branch=${CHANGE_BRANCH} \
+                              -Dsonar.pullrequest.base=${CHANGE_TARGET}
+                      '''
+                    }
+                }
+            }
+          }
+        }
+      }
+    }
+    stage('develop : Quality gate status '){
+      steps {
+        script {
+          if (env.BRANCH_NAME == "${DEV_REPO_BRANCH_NAME}"){
+           QUALITY_GATE = waitForQualityGate abortPipeline: false, credentialsId: "${DEV_SONAR_CREDENTIALS_ID}"
+
+           if (QUALITY_GATE.status != 'OK') {
+                    currentBuild.result = 'UNSTABLE'
+                }  
+          }
+        }
+      }
+      post {
+        unstable{
+          script{
+            def emailBody = """The quality gate has failed. Please check the SonarQube report for details: <a href="${SONARQUBE_URL}/dashboard?id=${SONAR_PROJECT_NAME}&branch=${SONAR_DEV_BRANCH}">${SONARQUBE_URL}/dashboard?id=${SONAR_PROJECT_NAME}&branch=${SONAR_DEV_BRANCH}</a>"""
+              emailext body: emailBody + '''${SCRIPT, template="groovy-html.template"}''',
+              mimeType: 'text/html',
+              subject: "Build Failed - Sonar Quality Gate Fail",
+              to: "${DEV_FAILURE_TO_EMAIL}",
+              replyTo: "${DEV_REPLY_TO_EMAIL}",
+              recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()]
+          }
+        }
+      }
+    }
+    stage('develop : image build') {
+      steps {
+        script {
+            dir ("${DIRECTORY_NAME}") {
+                if (env.BRANCH_NAME == "${DEV_REPO_BRANCH_NAME}") {
+                  sh 'sudo chmod 666 /var/run/docker.sock'
+                    docker.withRegistry("${DEV_ECR_REGISTRY}", "ecr:us-east-1:${DEV_AWS_CREDS}") {    
+                      ECR_BUILD = docker.build("${ECR_BUILD}")
+                      ECR_BUILD.push()
+
+                      ECR_LATEST_BUILD = docker.build("${ECR_LATEST_BUILD}")
+                      ECR_LATEST_BUILD.push()
+                    }
+                    docker.withRegistry("${ORT_REGISTRY}", 'ortartifactory') {
+
+                      JFROG_REPO_BUILD = docker.build("${JFROG_REPO_BUILD}")
+                      JFROG_REPO_BUILD.push()
+
+                      JFROG_LATEST_BUILD = docker.build("${JFROG_LATEST_BUIlD}")
+                      JFROG_LATEST_BUILD.push()
+                    }   
+                }
+            }
+        }
+      }
+    }
+    stage("develop : scan image"){
+      steps{
+        script{
+          dir ("${DIRECTORY_NAME}"){
+            if (env.BRANCH_NAME == "${DEV_REPO_BRANCH_NAME}"){
+              withCredentials([string(credentialsId: "${DEV_JFROG_CREDENTIALS_ID }", variable: 'JFROG_ACCESS_TOKEN')]) {
+                    sh 'jf c add --interactive=false --url=$ORT_REGISTRY --access-token=$JFROG_ACCESS_TOKEN '
+                    sh 'jf c use Default-Server'
+
+                   
+                    // creating npm build for npm modules by that we can get sbom
+                    sh 'npm i'
+                    sh 'zip -r $DEV_JFROG_COMPONENT_NAME .'
+                    sh """jf rt u "$DEV_JFROG_COMPONENT_NAME/" "$JFROG_ARTIFACTORY_NAME/" """
+                    
+                    sh "mkdir -p report"
+                    sh 'jf s $DEV_JFROG_COMPONENT_NAME --format json > report/vulnerabilities.json'
+
+                    def SHA_256 = sh(script: 'curl -sS -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" "${DEV_JFROG_ARTIFACTORY_PATH}" | jq -r ".checksums.sha256"', returnStdout: true).trim()
+                    env.SHA_256 = SHA_256
+                    echo "SHA-256 Value: ${SHA_256}" 
+                    sh 'sleep 2m'
+                    
+                    sh "curl -XPOST '$ORT_REGISTRY/xray/api/v1/component/exportDetails' -H 'Authorization: Bearer $JFROG_ACCESS_TOKEN' -H Content-type:application/json -d '{ \"violations\": false, \"include_ignored_violations\": false, \"license\": false, \"security\": false, \"exclude_unknown\": false, \"spdx\": true, \"spdx_format\": \"json\", \"component_name\": \"$DEV_JFROG_COMPONENT_NAME\", \"package_type\": \"$DEV_JFROG_PACKAGE_NAME\", \"sha_256\": \"$SHA_256\", \"output_format\": \"json\" }' --output report.zip"
+                    sh "unzip -o report.zip -d report"
+
+                 
+              }
+            }
+          }
+        }
+      }
+      post{ 
+        success{
+          script{
+            def file = readFile 'frontend/report/vulnerabilities.json'
+            if (env.GIT_BRANCH == "${DEV_REPO_BRANCH_NAME}"){
+              if (file.length() > 0 && file != '[]') {
+                emailext attachmentsPattern: 'frontend/report/',
+                  subject: "Vulnerability Report - Jenkins Build",
+                    body: '''${SCRIPT, template="groovy-html.template"}''',
+                    mimeType: 'text/html',
+                    to: "${DEV_ALWAYS_TO_EMAIL}, cc: ${DEV_CC_TO_EMAIL}",
+                    replyTo: "${DEV_REPLY_TO_EMAIL}",
+                    recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()] 
+              }
+            }
+          }
+        }
+      }
+    }
+    stage('develop : image deploy') {
+      steps{
+        script {
+          if (env.BRANCH_NAME == "${DEV_REPO_BRANCH_NAME}") {
+            withAWS(credentials: "${DEV_AWS_CREDS}", region: "${IMAGE_DEPLOY_REGION}") {
+              sh "aws eks --region us-east-1 update-kubeconfig --name ort-eks-cluster-test"
+              sh "kubectl rollout restart deployment.apps/chatbot-app -n mobile-integration"          
+            }
+          }
+        }
+      }
+    }
+    stage('master : create .env file'){
+        steps {
+            script {
+                dir ("${DIRECTORY_NAME}") {
+                    if (env.BRANCH_NAME == "${PROD_REPO_BRANCH_NAME}"){
+                        withCredentials([[
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: "${PROD_AWS_CREDS}",
+                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                        ]]) {
+                        
+                            sh """
+                                 aws secretsmanager get-secret-value --secret-id ${PROD_SECRET_ID} --query SecretString --region us-east-1 --output text | jq -r 'to_entries[] | "\\(.key)=\\(.value)"' > .env
+                            """
+                        }
+                    } 
+                } 
+            }    
+        }
+    }
+    stage('master : sonarqube scan '){
+      steps{
+        script {
+          dir ("${DIRECTORY_NAME}"){
+            if (env.BRANCH_NAME == "${PROD_REPO_BRANCH_NAME}"){
+              nodejs(nodeJSInstallationName: "${NODEJS}"){
+                withSonarQubeEnv(credentialsId: "${PROD_SONAR_CREDENTIALS_ID}") {
+                  sh 'npm install sonar-scanner'
+                  sh 'npm run sonar'
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    stage('master : Quality gate status '){
+      steps {
+        script {
+          if (env.BRANCH_NAME == "${PROD_REPO_BRANCH_NAME}"){
+           QUALITY_GATE = waitForQualityGate abortPipeline: false, credentialsId: "${PROD_SONAR_CREDENTIALS_ID}"
+
+           if (QUALITY_GATE.status != 'OK') {
+                    currentBuild.result = 'UNSTABLE'
+                }  
+          }
+        }
+      }
+      post {
+        unstable{
+          script{
+            def emailBody = """The quality gate has failed. Please check the SonarQube report for details: <a href="${SONARQUBE_URL}/dashboard?id=${SONAR_PROJECT_NAME}&branch=${SONAR_PROD_BRANCH}">${SONARQUBE_URL}/dashboard?id=${SONAR_PROJECT_NAME}&branch=${SONAR_PROD_BRANCH}</a>"""
+              emailext body: emailBody + '''${SCRIPT, template="groovy-html.template"}''',
+              mimeType: 'text/html',
+              subject: "Build Failed - Sonar Quality Gate Fail",
+              to: "${PROD_FAILURE_TO_EMAIL}",
+              replyTo: "${PROD_REPLY_TO_EMAIL}",
+              recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()]
+          }
+        }
+      }
+    }
+    stage('master : image build') {
+      steps {
+        script {
+            dir ("${DIRECTORY_NAME}") {
+                if (env.BRANCH_NAME == "${PROD_REPO_BRANCH_NAME}") {
+                  sh 'sudo chmod 666 /var/run/docker.sock'
+                  docker.withRegistry("${PROD_ECR_REGISTRY}", "ecr:us-east-1:${PROD_AWS_CREDS}") {
+
+                    ECR_BUILD = docker.build("${ECR_BUILD}")
+                    ECR_BUILD.push()
+                    
+                    ECR_LATEST_BUILD = docker.build("${ECR_LATEST_BUILD}")
+                    ECR_LATEST_BUILD.push()
+                  }  
+                }
+            }
+        }
+      }
+    }
+    stage("master : scan image"){
+      steps{
+        script{
+          dir ("${DIRECTORY_NAME}"){
+            if (env.BRANCH_NAME == "${PROD_REPO_BRANCH_NAME}"){
+              withCredentials([string(credentialsId: "${PROD_JFROG_CREDENTIALS_ID}", variable: 'JFROG_ACCESS_TOKEN')]) {
+                  sh 'jf c add --interactive=false --url=$ORT_REGISTRY --access-token=$JFROG_ACCESS_TOKEN '
+                  sh 'jf c use Default-Server'
+
+                  sh 'npm i'
+                  sh 'zip -r $PROD_JFROG_COMPONENT_NAME .'
+                  sh """jf rt u "$PROD_JFROG_COMPONENT_NAME/" "$PROD_JFROG_ARTIFACTORY_NAME/" """
+                  
+                  sh "mkdir -p report"
+                  sh 'jf s $PROD_JFROG_COMPONENT_NAME --format json > report/vulnerabilities.json'
+                  def SHA_256 = sh(script: 'curl -sS -H "Authorization: Bearer $JFROG_ACCESS_TOKEN" "${PROD_JFROG_ARTIFACTORY_PATH}" | jq -r ".checksums.sha256"', returnStdout: true).trim()
+                  env.SHA_256 = SHA_256
+                  echo "SHA-256 Value: ${SHA_256}" 
+                  sh 'sleep 2m'
+                  
+                  sh "curl -XPOST '$ORT_REGISTRY/xray/api/v1/component/exportDetails' -H 'Authorization: Bearer $JFROG_ACCESS_TOKEN' -H Content-type:application/json -d '{ \"violations\": false, \"include_ignored_violations\": false, \"license\": false, \"security\": false, \"exclude_unknown\": false, \"spdx\": true, \"spdx_format\": \"json\", \"component_name\": \"$PROD_JFROG_COMPONENT_NAME\", \"package_type\": \"$PROD_JFROG_PACKAGE_NAME\", \"sha_256\": \"$SHA_256\", \"output_format\": \"json\" }' --output report.zip"
+                  sh "unzip -o report.zip -d report"            
+                
+              }
+            }
+          }
+        }
+      }
+      post{ 
+        success{
+          script{
+            def file = readFile 'frontend/report/vulnerabilities.json'
+            if (env.GIT_BRANCH == "${PROD_REPO_BRANCH_NAME}") {
+              if (file.length() > 0 && file != '[]') {
+                emailext attachmentsPattern: 'frontend/report/',
+                  subject: "Vulnerability Report - Jenkins Build",
+                    body: '''${SCRIPT, template="groovy-html.template"}''',
+                    mimeType: 'text/html',
+                    to: "${PROD_ALWAYS_TO_EMAIL}, cc: ${PROD_CC_TO_EMAIL}",
+                    replyTo: "${PROD_REPLY_TO_EMAIL}",
+                    recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()] 
+              }
+            }
+          }
+        }
+      }
+    }     
+    stage('master : image deploy') {
+      steps{
+        script {
+          if (env.BRANCH_NAME == "${PROD_REPO_BRANCH_NAME}") {
+            withAWS(credentials: "${PROD_AWS_CREDS}", region: "${IMAGE_DEPLOY_REGION}") {
+              sh "aws eks --region us-east-1 update-kubeconfig --name ort-eks-cluster"
+              sh "kubectl rollout restart deployment.apps/chatbot-app -n mobile-integration"          
+            }
+          }
+        }
+      }
+    }        
+  }
+	post {  
+    always {
+      script {
+        if (env.GIT_BRANCH == "${DEV_REPO_BRANCH_NAME}") {
+        emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+            mimeType: 'text/html',
+            subject: "[Jenkins] $currentBuild.fullDisplayName",
+            to: "${DEV_ALWAYS_TO_EMAIL}",
+            replyTo: "${DEV_REPLY_TO_EMAIL}",
+            recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()]
+        } 
+        if (env.GIT_BRANCH == "${PROD_REPO_BRANCH_NAME}") {
+          emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+              mimeType: 'text/html',
+              subject: "[Jenkins] $currentBuild.fullDisplayName",
+              to: "${PROD_ALWAYS_TO_EMAIL}",
+              replyTo: "${PROD_REPLY_TO_EMAIL}",
+              recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()]
+        } 
+      }   
+    }
+    failure { 
+      script {
+        if (env.GIT_BRANCH == "${DEV_REPO_BRANCH_NAME}") {
+        emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+            mimeType: 'text/html',
+            subject: "[Jenkins] $currentBuild.fullDisplayName",
+            to: "${DEV_FAILURE_TO_EMAIL}, cc: ${DEV_CC_TO_EMAIL}",
+            replyTo: "${DEV_REPLY_TO_EMAIL}",
+            recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()]
+        }
+        if (env.GIT_BRANCH == "${PROD_REPO_BRANCH_NAME}") {
+          emailext body: '''${SCRIPT, template="groovy-html.template"}''',
+              mimeType: 'text/html',
+              subject: "[Jenkins] $currentBuild.fullDisplayName",
+              to: "${PROD_FAILURE_TO_EMAIL}, cc: ${PROD_CC_TO_EMAIL}",
+              replyTo: "${PROD_REPLY_TO_EMAIL}",
+              recipientProviders: [[$class: 'CulpritsRecipientProvider'],culprits()]
+        }
+      }
+    }
+  }
+}
