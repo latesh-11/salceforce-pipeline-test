@@ -9,6 +9,7 @@ pipeline{
         stage("Code analysis"){
             steps{
                 script {
+                    sh "chmod +x test/bashScripts/countError.sh"
                     sh "./test/bashScripts/countError.sh"
                     echo "PMD Script - Commit at develop"
                 }
