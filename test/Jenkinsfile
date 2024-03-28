@@ -40,7 +40,7 @@ pipeline{
                                     sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file test/accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
                                     Successfully authenticated in Production ✅
                                     Validation started ... 🔜
-                                    sf project deploy start -x manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose
+                                    sf project deploy start -x test/manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose
                                 """
                             }
                         }
