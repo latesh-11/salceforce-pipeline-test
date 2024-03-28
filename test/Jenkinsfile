@@ -14,6 +14,7 @@ pipeline{
             steps{
                 script {
                     sh """
+                        pwd
                         cd /test/bashScripts
                         wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
                         mkdir -p ~/cli/sf
