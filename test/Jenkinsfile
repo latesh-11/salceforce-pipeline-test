@@ -30,7 +30,6 @@ pipeline{
                                 echo " "
                                 sh """
                                     pwd 
-                                    sf -v
                                     whoami
                                     sudo wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
                                     mkdir -p ~/cli/sf
