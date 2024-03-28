@@ -28,15 +28,15 @@ pipeline{
                                 echo "  "
                                 echo "Authenticating in Production.... ⏱️"
                                 echo " "
+                                sh """
+                                    pwd 
+                                    sf -v
+                                """
                                 sh "sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}"
                                 echo " "
                                 echo "Successfully authenticated in Production ✅"
                                 echo " "
                                 echo "Validation started ... 🔜"
-                                sh """
-                                    pwd 
-                                    sf -v
-                                """
                                 sh "sf project deploy start -x manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose"
                             }
                         }
