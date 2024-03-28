@@ -13,6 +13,13 @@ pipeline{
         stage("Code analysis"){
             steps{
                 script {
+                    sh """
+                        wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
+                        mkdir -p ~/cli/sf
+                        tar xJf sf-linux-x64.tar.xz -C ~/cli/sf --strip-components 1
+                        export PATH=~/cli/sf/bin:$PATH
+                        PATH=~/cli/sf/bin:$PATH
+                    """
                     sh "chmod +x test/bashScripts/countError.sh"
                     sh "./test/bashScripts/countError.sh"
                     echo "PMD Script - Commit at develop"
