@@ -18,7 +18,7 @@ pipeline{
         stage("Validate"){
            steps {
                 script {
-                     if (env.GIT_BRANCH == "origin/merge_requests/*"){
+                     if (env.CHANGE_ID != null){
                         if (env.CHANGE_TARGET == 'QA') {
                             withCredentials([usernamePassword(credentialsId: "${PR_CREDENTIALS_ID}", passwordVariable: 'PR_CONSUMER_KEY', usernameVariable: 'PR_USERNAME')]) {
                                 echo "  "
