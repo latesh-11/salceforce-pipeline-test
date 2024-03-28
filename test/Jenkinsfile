@@ -37,6 +37,7 @@ pipeline{
                                     tar xJf sf-linux-x64.tar.xz -C ~/cli/sf --strip-components 1
                                     export PATH=~/cli/sf/bin:$PATH
                                     PATH=~/cli/sf/bin:$PATH
+                                    sf -v 
                                 """
                                 sh "sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}"
                                 echo " "
