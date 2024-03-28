@@ -42,6 +42,10 @@ pipeline{
                                 echo "Successfully authenticated in Production ✅"
                                 echo " "
                                 echo "Validation started ... 🔜"
+                                sh """
+                                    pwd 
+                                    sf -v
+                                """
                                 sh "sf project deploy start -x manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose"
                             }
                         }
