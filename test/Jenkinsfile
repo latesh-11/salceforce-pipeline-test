@@ -21,16 +21,6 @@ pipeline{
                      if (env.CHANGE_ID != null){
                         if (env.CHANGE_TARGET == 'QA') {
                             withCredentials([usernamePassword(credentialsId: "${PR_CREDENTIALS_ID}", passwordVariable: 'PR_CONSUMER_KEY', usernameVariable: 'PR_USERNAME')]) {
-                                sh """
-                                    apt-get update
-                                    apt-get install -y wget default-jdk unzip xz-utils  # Install JDK and wget
-                                    wget https://developer.salesforce.com/media/salesforce-cli/sf/channels/stable/sf-linux-x64.tar.xz
-                                    mkdir ~/cli
-                                    mkdir ~/cli/sf
-                                    tar xJf sf-linux-x64.tar.xz -C ~/cli/sf --strip-components 1
-                                    export PATH="$HOME/cli/sf/bin:$PATH"
-                                    PATH=$HOME/cli/sf/bin:$PATH
-                                """
                                 echo "  "
                                 echo "Authenticating in Production.... ⏱️"
                                 echo " "
