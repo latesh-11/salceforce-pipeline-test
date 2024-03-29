@@ -37,5 +37,8 @@
     "**/{aura,lwc}/**/*.js": [
       "eslint"
     ]
+  },
+  "dependencies": {
+    "npm": "^10.5.0"
   }
 }
