@@ -45,8 +45,7 @@ pipeline{
         stage("Deploy"){
            steps {
                 script {
-                     if (env.CHANGE_ID != null){
-                        if (env.CHANGE_TARGET == 'QA') {
+                        if (env.BRANCH_NAME == 'QA') {
                             withCredentials([usernamePassword(credentialsId: "${PR_CREDENTIALS_ID}", passwordVariable: 'PR_CONSUMER_KEY', usernameVariable: 'PR_USERNAME')]) {
                                 echo "  "
                                 echo "Authenticating in Production.... ⏱️"
@@ -59,7 +58,6 @@ pipeline{
                                 """
                             }
                         }
-                    }
                 }
            }
         }
