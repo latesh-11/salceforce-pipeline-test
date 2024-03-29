@@ -17,8 +17,9 @@ pipeline{
                     sh "chmod +x  bashScripts/countError.sh"
                     sh "./bashScripts/countError.sh"
                     echo "PMD Script - Commit at develop"
-                    sh "which sf"
-                    sh "sf -v"
+                    sh "whoami"
+                    sh "pwd"
+                    sh "ls"
                 }
             }
         }
