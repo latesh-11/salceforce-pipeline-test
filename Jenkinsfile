@@ -17,9 +17,6 @@ pipeline{
                     sh "chmod +x  bashScripts/countError.sh"
                     sh "./bashScripts/countError.sh"
                     echo "PMD Script - Commit at develop"
-                    sh "whoami"
-                    sh "pwd"
-                    sh "sf -v"
                 }
             }
         }
@@ -33,9 +30,7 @@ pipeline{
                                 echo "Authenticating in Production.... ⏱️"
                                 echo " "
                                 sh """
-                                    export PATH=~/cli/sf/bin:$PATH
-                                    PATH=~/cli/sf/bin:$PATH
-                                    sf -v 
+                                    sf -v
                                     sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file  accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
                                     echo "Successfully authenticated in Production ✅"
                                     echo "Validation started ... 🔜"
@@ -57,9 +52,6 @@ pipeline{
                                 echo "Authenticating in Production.... ⏱️"
                                 echo " "
                                 sh """
-                                    export PATH=~/cli/sf/bin:$PATH
-                                    PATH=~/cli/sf/bin:$PATH
-                                    sf -v 
                                     sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file  accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
                                     echo "Successfully authenticated in Production ✅"
                                     echo "Deployment started ... 🔜"
