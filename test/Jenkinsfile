@@ -34,8 +34,8 @@ pipeline{
                                     PATH=~/cli/sf/bin:$PATH
                                     sf -v 
                                     sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file test/accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
-                                    Successfully authenticated in Production ✅
-                                    Validation started ... 🔜
+                                    echo "Successfully authenticated in Production ✅"
+                                    echo "Validation started ... 🔜"
                                     sf project deploy start -x test/manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose
                                 """
                             }
@@ -58,8 +58,8 @@ pipeline{
                                     PATH=~/cli/sf/bin:$PATH
                                     sf -v 
                                     sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file test/accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
-                                    Successfully authenticated in Production ✅
-                                    Deployment started ... 🔜
+                                    echo "Successfully authenticated in Production ✅"
+                                    echo "Deployment started ... 🔜"
                                     sf project deploy start -x test/manifest/package.xml --target-org PR --ignore-warnings --verbose
                                 """
                             }
