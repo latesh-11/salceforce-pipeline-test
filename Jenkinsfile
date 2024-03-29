@@ -19,7 +19,7 @@ pipeline{
                     echo "PMD Script - Commit at develop"
                     sh "whoami"
                     sh "pwd"
-                    sh "ls"
+                    sh "sf -v"
                 }
             }
         }
