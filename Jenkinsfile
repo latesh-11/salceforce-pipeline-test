@@ -14,8 +14,8 @@ pipeline{
         stage("Code analysis"){
             steps{
                 script {
-                    sh "chmod +x test/bashScripts/countError.sh"
-                    sh "./test/bashScripts/countError.sh"
+                    sh "chmod +x  bashScripts/countError.sh"
+                    sh "./bashScripts/countError.sh"
                     echo "PMD Script - Commit at develop"
                 }
             }
@@ -33,10 +33,10 @@ pipeline{
                                     export PATH=~/cli/sf/bin:$PATH
                                     PATH=~/cli/sf/bin:$PATH
                                     sf -v 
-                                    sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file test/accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
+                                    sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file  accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
                                     echo "Successfully authenticated in Production ✅"
                                     echo "Validation started ... 🔜"
-                                    sf project deploy start -x test/manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose
+                                    sf project deploy start -x  manifest/package.xml --dry-run --target-org PR --ignore-warnings --verbose
                                 """
                             }
                         }
@@ -57,10 +57,10 @@ pipeline{
                                     export PATH=~/cli/sf/bin:$PATH
                                     PATH=~/cli/sf/bin:$PATH
                                     sf -v 
-                                    sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file test/accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
+                                    sf login org jwt --alias PR --client-id ${PR_CONSUMER_KEY} --jwt-key-file  accesskey/server.key --set-default --set-default-dev-hub --instance-url https://login.salesforce.com --username ${PR_USERNAME}
                                     echo "Successfully authenticated in Production ✅"
                                     echo "Deployment started ... 🔜"
-                                    sf project deploy start -x test/manifest/package.xml --target-org PR --ignore-warnings --verbose
+                                    sf project deploy start -x  manifest/package.xml --target-org PR --ignore-warnings --verbose
                                 """
                             }
                         }
